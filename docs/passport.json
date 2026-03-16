@@ -1,0 +1,36 @@
+{
+  "chinaPassport": {
+    "passportId": "CN-BAT-2025-DEMO-0001",
+    "version": "v1.0",
+    "status": "prototype",
+    "lastUpdate": "Veri mevcut değil"
+  },
+  "generalIdentity": {
+    "manufacturer": "Veri mevcut değil",
+    "batteryCategory": "Veri mevcut değil",
+    "productionPlace": "Veri mevcut değil",
+    "productionDate": "Veri mevcut değil",
+    "model": "Veri mevcut değil",
+    "weight": "Veri mevcut değil",
+    "chemistry": "Veri mevcut değil",
+    "traceabilityCode": "Veri mevcut değil"
+  },
+  "materials": {
+    "criticalRawMaterials": "Veri mevcut değil",
+    "hazardousSubstances": "Veri mevcut değil"
+  },
+  "sustainability": {
+    "responsibleSourcingReport": "Veri mevcut değil",
+    "recycledContentShare": "Veri mevcut değil",
+    "renewableContentShare": "Veri mevcut değil"
+  },
+  "compliance": {
+    "chinaRoHS": "Veri mevcut değil",
+    "ccc": "Veri mevcut değil",
+    "gbStandards": "Veri mevcut değil"
+  },
+  "recycling": {
+    "eprInfo": "Veri mevcut değil",
+    "takeBackInfo": "Veri mevcut değil"
+  }
+}
