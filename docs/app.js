@@ -1,170 +1,510 @@
 (() => {
   const app = document.getElementById("app");
-  if (!app) return;
+  if (!app) {
+    document.body.innerHTML = "<pre>#app bulunamadı</pre>";
+    return;
+  }
 
-  const state = { tab: "overview", data: null, error: null };
+  // GitHub Pages'te repo adı URL'nin ilk parçasıdır: /REPO_ADI/...
+  const BASE = (() => {
+    const parts = location.pathname.split("/").filter(Boolean);
+    return parts.length ? `/${parts[0]}` : "";
+  })();
+
+  const VIEW = {
+    public: {
+      label: "Kamuya Açık",
+      tabs: ["overview", "dynamic", "carbon", "performance", "circularity", "compliance"],
+    },
+    professional: {
+      label: "Profesyonel",
+      tabs: ["overview", "dynamic", "carbon", "materials", "performance", "circularity", "compliance"],
+    },
+    authority: {
+      label: "Denetim Otoritesi",
+      tabs: ["overview", "dynamic", "carbon", "materials", "performance", "circularity", "compliance", "testreports"],
+    },
+  };
 
   const TABS = [
-    { id: "overview", label: "Genel Kimlik" },
-    { id: "materials", label: "Malzeme" },
-    { id: "sustainability", label: "Sürdürülebilirlik" },
-    { id: "compliance", label: "Uyumluluk" },
-    { id: "recycling", label: "Geri Dönüşüm / EPR" }
+    { id: "overview", label: "Genel" , icon: "battery" },
+    { id: "carbon", label: "Sürdürülebilirlik", icon: "leaf" },
+    { id: "materials", label: "Malzeme", icon: "package" },
+    { id: "performance", label: "Performans", icon: "zap" },
+    { id: "circularity", label: "Döngüsel Ekonomi", icon: "recycle" },
+    { id: "compliance", label: "Uyumluluk", icon: "shield" },
+    { id: "dynamic", label: "Dinamik Veriler", icon: "activity" },
+    { id: "testreports", label: "Test Raporu", icon: "file-text" },
   ];
 
-  const esc = (s) =>
-    String(s ?? "")
+  const state = {
+    view: "public",
+    tab: "overview",
+    data: null,
+    err: null,
+  };
+
+  // --- DEFAULT (JSON okunamazsa bile ekranda bir şey görünsün) ---
+  const DEFAULT = {
+    passport: { id: "NMC-BAT-2026-FR-8105", version: "v1.0", status: "prototype", lastUpdate: "Veri mevcut değil" },
+    battery: {
+      manufacturer: "Veri mevcut değil",
+      batteryType: "Çekiş bataryası (Traction Battery)",
+      model: "Veri mevcut değil",
+      chemistry: "NMC 811 (80% Ni, 10% Mn, 10% Co)",
+      manufactureDate: "2026",
+      manufactureCountry: "Çin",
+      productionSiteAddress: "Veri mevcut değil",
+      capacity: "52 kWh",
+      weight: "Veri mevcut değil",
+    },
+    carbonFootprint: {
+      total: 221,
+      unit: "kgCO₂e/kWh",
+      reference: "Aulanier et al., 2023",
+      stages: { rawMaterial: 35, manufacturing: 28, transport: 8, endOfLife: 6 },
+      note: "Çekiş bataryası için literatür bazlı demo değer (prototip).",
+    },
+    materials: [
+      { name: "Nikel (Ni)", percentage: 42, source: "Veri mevcut değil", recycledContent: "Veri mevcut değil" },
+      { name: "Mangan (Mn)", percentage: 8, source: "Veri mevcut değil", recycledContent: "Veri mevcut değil" },
+      { name: "Kobalt (Co)", percentage: 8, source: "Veri mevcut değil", recycledContent: "Veri mevcut değil" },
+      { name: "Lityum (Li)", percentage: 7, source: "Veri mevcut değil", recycledContent: "Veri mevcut değil" },
+      { name: "Grafit", percentage: 15, source: "Veri mevcut değil", recycledContent: "Veri mevcut değil" },
+      { name: "Alüminyum", percentage: 12, source: "Veri mevcut değil", recycledContent: "Veri mevcut değil" },
+      { name: "Diğer", percentage: 8, source: "Veri mevcut değil", recycledContent: "Veri mevcut değil" },
+    ],
+    performance: {
+      energyDensity: "Veri mevcut değil",
+      voltage: "Veri mevcut değil",
+      power: "Veri mevcut değil",
+      tempRange: "Veri mevcut değil",
+      cycleLife: "Veri mevcut değil",
+      efficiency: "Veri mevcut değil",
+    },
+    circularity: {
+      repairability: "Veri mevcut değil",
+      recyclability: "Veri mevcut değil",
+      recycledContent: "Veri mevcut değil",
+      secondLife: "Veri mevcut değil",
+      docs: {
+        dismantling: "Veri mevcut değil",
+        sds: "Veri mevcut değil",
+      },
+    },
+    compliance: {
+      euBatteryRegulation: "Uyumlu (Demo)",
+      espr: "Uyumlu (Demo)",
+      rohs: "Uyumlu (Demo)",
+      reach: "Uyumlu (Demo)",
+      ce: "Uyumlu (Demo)",
+      testReport: "Uyumlu (Demo)",
+      productCertificates: "Uyumlu (Demo)",
+    },
+    dynamic: {
+      performanceRecords: "Veri mevcut değil",
+      soh: "Veri mevcut değil",
+      soc: "Veri mevcut değil",
+      batteryStatus: "Veri mevcut değil",
+      usageData: "Veri mevcut değil",
+      incidents: "Veri mevcut değil",
+      temperatureExposure: "Veri mevcut değil",
+    },
+  };
+
+  function escapeHtml(x) {
+    return String(x ?? "")
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-
-  const kv = (k, v) =>
-    `<div class="kv"><div class="k">${esc(k)}</div><div class="v">${esc(v ?? "Veri mevcut değil")}</div></div>`;
-
-  function tabsHTML() {
-    return `
-      <div class="tabs">
-        ${TABS.map(t => `<button class="tab ${state.tab === t.id ? "active" : ""}" data-tab="${t.id}">${esc(t.label)}</button>`).join("")}
-      </div>
-    `;
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
   }
 
-  function overviewHTML(d) {
-    const p = d.chinaPassport || {};
-    const g = d.generalIdentity || {};
+  function icon(name) {
+    return `<i data-lucide="${name}" style="width:18px;height:18px;"></i>`;
+  }
+
+  function createIconsSafe() {
+    try {
+      if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+    } catch (_) {}
+  }
+
+  function isNoData(val) {
+    const s = String(val ?? "").trim().toLowerCase();
+    return !s || s === "veri mevcut değil" || s === "n/a" || s === "na" || s === "null";
+  }
+
+  function pillStatusClass(val) {
+    // "Veri mevcut değil" ise WARN (yeşil olmasın)
+    if (isNoData(val)) return "warn";
+    // demo uyumluysa OK
+    const s = String(val ?? "").toLowerCase();
+    if (s.includes("uyumlu")) return "ok";
+    return "warn";
+  }
+
+  function normalize(json) {
+    if (!json) return structuredClone(DEFAULT);
+
+    const out = structuredClone(DEFAULT);
+
+    // passport
+    if (json.passport) {
+      out.passport.id = json.passport.id ?? out.passport.id;
+      out.passport.version = json.passport.version ?? out.passport.version;
+      out.passport.status = json.passport.status ?? out.passport.status;
+      out.passport.lastUpdate = json.passport.lastUpdate ?? out.passport.lastUpdate;
+    }
+
+    // battery
+    if (json.battery) {
+      out.battery.manufacturer = json.battery.manufacturer ?? out.battery.manufacturer;
+      out.battery.batteryType = json.battery.batteryType ?? out.battery.batteryType;
+      out.battery.model = json.battery.model ?? out.battery.model;
+      out.battery.chemistry = json.battery.chemistry ?? out.battery.chemistry;
+      out.battery.manufactureDate = json.battery.manufactureDate ?? out.battery.manufactureDate;
+      out.battery.manufactureCountry = json.battery.manufactureCountry ?? out.battery.manufactureCountry;
+      out.battery.productionSiteAddress = json.battery.productionSiteAddress ?? out.battery.productionSiteAddress;
+      out.battery.capacity = json.battery.capacity ?? out.battery.capacity;
+      out.battery.weight = json.battery.weight ?? out.battery.weight;
+    }
+
+    // carbon
+    if (json.carbonFootprint) {
+      out.carbonFootprint.total = json.carbonFootprint.total ?? out.carbonFootprint.total;
+      out.carbonFootprint.unit = json.carbonFootprint.unit ?? out.carbonFootprint.unit;
+      out.carbonFootprint.reference = json.carbonFootprint.reference ?? out.carbonFootprint.reference;
+      out.carbonFootprint.note = json.carbonFootprint.note ?? out.carbonFootprint.note;
+      out.carbonFootprint.stages = json.carbonFootprint.stages ?? out.carbonFootprint.stages;
+    }
+
+    // materials
+    if (Array.isArray(json.materials)) out.materials = json.materials;
+
+    // performance
+    if (json.performance) out.performance = { ...out.performance, ...json.performance };
+
+    // circularity
+    if (json.circularity) out.circularity = { ...out.circularity, ...json.circularity };
+
+    // compliance
+    if (json.compliance) out.compliance = { ...out.compliance, ...json.compliance };
+
+    // dynamic
+    if (json.dynamic) out.dynamic = { ...out.dynamic, ...json.dynamic };
+
+    return out;
+  }
+
+  function allowedTabs() {
+    return VIEW[state.view].tabs;
+  }
+
+  function ensureTabAllowed() {
+    const allowed = allowedTabs();
+    if (!allowed.includes(state.tab)) state.tab = allowed[0];
+  }
+
+  function kv(label, value) {
     return `
-      <h1>Çin Batarya Pasaportu</h1>
-      <div class="sub">Demo | Çin pasaportu ekranı (ayrı repo)</div>
-      ${tabsHTML()}
+      <div class="kv">
+        <div class="k">${escapeHtml(label)}</div>
+        <div class="v">${escapeHtml(value ?? "Veri mevcut değil")}</div>
+      </div>`;
+  }
+
+  function infoCard(title, value) {
+    const cls = pillStatusClass(value);
+    const iconName = cls === "ok" ? "check-circle" : cls === "bad" ? "x-circle" : "alert-circle";
+    const pillText = isNoData(value) ? "Veri mevcut değil" : String(value);
+
+    return `
+      <div class="box">
+        <div class="pill ${cls}">
+          ${icon(iconName)}
+          ${escapeHtml(title)}
+        </div>
+        <div style="font-size:18px;font-weight:900;">${escapeHtml(pillText)}</div>
+      </div>`;
+  }
+
+  function renderOverview(d) {
+    const b = d.battery;
+    // İSTEDİĞİN: ekranı ikiye böl (modelden sonrası sağ taraf)
+    return `
+      <h2>Genel Bilgiler</h2>
       <div class="row">
         <div class="box">
-          ${kv("Pasaport ID", p.passportId)}
-          ${kv("Versiyon", p.version)}
-          ${kv("Durum", p.status)}
-          ${kv("Son Güncelleme", p.lastUpdate)}
+          ${kv("Üretici", b.manufacturer)}
+          ${kv("Batarya Türü", b.batteryType)}
+          ${kv("Üretim Ülkesi", b.manufactureCountry)}
+          ${kv("Üretim Yılı (Ay/Yıl)", b.manufactureDate)}
+          ${kv("Üretim Yeri Adresi", b.productionSiteAddress)}
         </div>
+
         <div class="box">
-          ${kv("Üretici", g.manufacturer)}
-          ${kv("Pil Kategorisi", g.batteryCategory)}
-          ${kv("Üretim Yeri", g.productionPlace)}
-          ${kv("Üretim Tarihi", g.productionDate)}
-          ${kv("Model", g.model)}
-          ${kv("Ağırlık", g.weight)}
-          ${kv("Kimya", g.chemistry)}
-          ${kv("İzlenebilirlik Kodu", g.traceabilityCode)}
+          ${kv("Model", b.model)}
+          ${kv("Pil Kimyası", b.chemistry)}
+          ${kv("Nominal Kapasite", b.capacity)}
+          ${kv("Ağırlık", b.weight)}
+          <div class="small">Not: Bu sayfa tez için demo prototiptir.</div>
         </div>
       </div>
     `;
   }
 
-  function materialsHTML(d) {
-    const m = d.materials || {};
+  function renderCarbon(d) {
+  var c = (d && d.carbonFootprint) ? d.carbonFootprint : {};
+
+  var totalText = "Veri mevcut değil";
+  if (c.total !== undefined && c.total !== null) {
+    totalText = String(c.total) + (c.unit ? " " + String(c.unit) : "");
+  }
+
+  return (
+    "<h2>Sürdürülebilirlik</h2>" +
+    '<div class="row">' +
+      '<div class="box">' +
+        kv("Karbon Ayak İzi (Toplam)", totalText, "green") +
+        kv("Sorumlu Tedarik Raporu", c.responsibleSourcingReport || "Veri mevcut değil", "blue") +
+        kv("Geri Dönüştürülmüş İçerik Payı", c.recycledContentShare || "Veri mevcut değil", "amber") +
+        kv("Yenilenebilir İçerik Payı", c.renewableContentShare || "Veri mevcut değil", "green") +
+      "</div>" +
+    "</div>"
+  );
+}
+
+  function renderMaterials(d) {
+    const list = (d.materials || []).map((m) => {
+      const pct = Math.max(0, Math.min(100, Number(m.percentage || 0)));
+      return `
+        <div class="box">
+          <div style="display:flex;justify-content:space-between;gap:10px;">
+            <div style="font-weight:1000;">${escapeHtml(m.name)}</div>
+            <div class="pill warn">${icon("package")} ${escapeHtml(pct)}%</div>
+          </div>
+          <div class="small">Kaynak: ${escapeHtml(m.source ?? "Veri mevcut değil")}</div>
+          <div class="small">Geri dönüştürülmüş içerik: ${escapeHtml(m.recycledContent ?? "Veri mevcut değil")}</div>
+          <div class="bar" style="margin-top:10px;"><div style="width:${pct}%"></div></div>
+        </div>
+      `;
+    }).join("");
+
     return `
-      <h1>Malzeme</h1>
-      <div class="sub">Kritik ham maddeler & tehlikeli maddeler (demo)</div>
-      ${tabsHTML()}
-      <div class="row">
-        <div class="box">
-          ${kv("Kritik Ham Maddeler", m.criticalRawMaterials)}
-          ${kv("Tehlikeli Maddeler", m.hazardousSubstances)}
-        </div>
-        <div class="box">
-          <div class="sub">Not: Çin pasaportu için ileride detaylı bileşim eklenebilir.</div>
-        </div>
+      <h2>Malzeme</h2>
+      <div class="small" style="margin-bottom:10px;">
+        Bu sekme Profesyonel ve Denetim Otoritesi için görünür (demo).
       </div>
+      <div style="display:grid;gap:12px;">${list}</div>
     `;
   }
 
-  function sustainabilityHTML(d) {
-    const s = d.sustainability || {};
+  function renderPerformance(d) {
+    const p = d.performance;
     return `
-      <h1>Sürdürülebilirlik</h1>
-      <div class="sub">Sorumlu tedarik & geri dönüştürülmüş içerik (demo)</div>
-      ${tabsHTML()}
-      <div class="row">
-        <div class="box">
-          ${kv("Sorumlu Tedarik Raporu", s.responsibleSourcingReport)}
-          ${kv("Geri Dönüştürülmüş İçerik Payı", s.recycledContentShare)}
-          ${kv("Yenilenebilir İçerik Payı", s.renewableContentShare)}
-        </div>
-        <div class="box">
-          <div class="sub">Not: Bu alanlar gerçek üretim verileri ile güncellenecektir.</div>
-        </div>
+      <h2>Performans</h2>
+      <div class="grid3">
+        <div class="box">${kv("Nominal Kapasite", d.battery.capacity)}</div>
+        <div class="box">${kv("Voltaj (min/nom/max)", p.voltage)}</div>
+        <div class="box">${kv("Güç Kapasitesi", p.power)}</div>
+        <div class="box">${kv("Sıcaklık Aralığı", p.tempRange)}</div>
+        <div class="box">${kv("Döngü Ömrü", p.cycleLife)}</div>
+        <div class="box">${kv("Enerji Verimliliği", p.efficiency)}</div>
       </div>
     `;
   }
 
-  function complianceHTML(d) {
-    const c = d.compliance || {};
+  function renderCircularity(d) {
+    const c = d.circularity;
+
     return `
-      <h1>Uyumluluk</h1>
-      <div class="sub">China RoHS / CCC / GB standartları (demo)</div>
-      ${tabsHTML()}
+      <h2>Döngüsel Ekonomi</h2>
       <div class="row">
-        <div class="box">
-          ${kv("China RoHS", c.chinaRoHS)}
-          ${kv("CCC", c.ccc)}
-          ${kv("GB Standartları", c.gbStandards)}
+        <div class="box" style="background:transparent;border:none;padding:0;">
+          <div style="display:grid;gap:12px;grid-template-columns:1fr;">
+            ${infoCard("Onarılabilirlik Skoru", c.repairability)}
+            ${infoCard("Geri Dönüşüm Bilgisi", c.recyclability)}  <!-- burada otomatik WARN olur -->
+            ${infoCard("Geri Dönüştürülmüş İçerik", c.recycledContent)}
+            ${infoCard("İkinci Ömür Uygunluğu", c.secondLife)}
+          </div>
         </div>
+
         <div class="box">
-          <div class="sub">Not: Sertifika numarası/test adı bu demo ekranda gösterilmez.</div>
+          <h3 style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+            ${icon("file-text")} Mevcut Dokümanlar
+          </h3>
+
+          <div style="display:grid;gap:12px;">
+            <div class="box">
+              <div class="pill warn">${icon("check-circle")} Söküm Talimatları</div>
+              <div style="font-size:18px;font-weight:900;">${escapeHtml(c.docs?.dismantling ?? "Veri mevcut değil")}</div>
+            </div>
+            <div class="box">
+              <div class="pill warn">${icon("check-circle")} Güvenlik Veri Sayfası (SDS)</div>
+              <div style="font-size:18px;font-weight:900;">${escapeHtml(c.docs?.sds ?? "Veri mevcut değil")}</div>
+            </div>
+          </div>
         </div>
       </div>
     `;
   }
 
-  function recyclingHTML(d) {
-    const r = d.recycling || {};
+  function renderCompliance(d) {
+    const x = d.compliance;
+    // İSTEDİĞİN: test/cert isimleri görünmesin -> sadece başlık + Uyumlu (Demo)
+    const cards = [
+      ["RoHS", "", x.rohs],
+      ["REACH", "", x.reach],
+      ["CE", "", x.ce],
+      ["Ürün Sertifikaları", "", x.productCertificates],
+    ].map(([title, sub, val]) => {
+      const cls = pillStatusClass(val);
+      const iconName = cls === "ok" ? "check-circle" : "alert-circle";
+      return `
+        <div class="box">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+            <div class="pill ${cls}">${icon(iconName)} ${escapeHtml(title)}</div>
+          </div>
+          ${sub ? `<div class="small">${escapeHtml(sub)}</div>` : `<div class="small">&nbsp;</div>`}
+          <div style="font-size:18px;font-weight:1000;margin-top:6px;">${escapeHtml(isNoData(val) ? "Veri mevcut değil" : val)}</div>
+        </div>`;
+    }).join("");
+
     return `
-      <h1>Geri Dönüşüm / EPR</h1>
-      <div class="sub">EPR ve take-back bilgileri (demo)</div>
-      ${tabsHTML()}
-      <div class="row">
-        <div class="box">
-          ${kv("EPR Bilgisi", r.eprInfo)}
-          ${kv("Geri Alma / Take-back", r.takeBackInfo)}
-        </div>
-        <div class="box">
-          <div class="sub">Not: Çin yerel mevzuatına göre özelleştirilecektir.</div>
-        </div>
-      </div>
+      <h2>Uyumluluk</h2>
+      <div class="grid3">${cards}</div>
     `;
   }
+ function renderTestReports(d) {
+  var tr = (d && d.testReports) ? d.testReports : {};
 
-  function contentHTML(d) {
-    if (state.tab === "overview") return overviewHTML(d);
-    if (state.tab === "materials") return materialsHTML(d);
-    if (state.tab === "sustainability") return sustainabilityHTML(d);
-    if (state.tab === "compliance") return complianceHTML(d);
-    if (state.tab === "recycling") return recyclingHTML(d);
-    return overviewHTML(d);
-  }
+  return (
+    "<h2>Test Raporu</h2>" +
+    '<div class="row">' +
+      '<div class="box">' +
+        '<h3 style="display:flex;gap:8px;align-items:center;">' +
+          icon("file-text") +
+          " Test Raporları" +
+        "</h3>" +
 
-  function wire() {
-    app.querySelectorAll("[data-tab]").forEach(btn => {
-      btn.onclick = () => { state.tab = btn.getAttribute("data-tab"); render(); };
-    });
+        '<div class="small" style="opacity:.8;margin:8px 0 14px;line-height:1.6;">' +
+          "Tüzük gerekliliklerine ve ilgili standartlara uygunluğu kanıtlayan test sonuçları.." +
+        "</div>" +
+
+        kv("UN 38.3", tr.un38_3 || "Veri mevcut değil", "blue") +
+        kv("UNECE R100", tr.uneceR100 || "Veri mevcut değil", "blue") +
+        kv("EMC (UNECE R10)", tr.emcUneceR10 || "Veri mevcut değil", "blue") +
+      "</div>" +
+    "</div>"
+  );
+}
+  function renderDynamic(d) {
+    const dy = d.dynamic;
+    return `
+      <h2>Dinamik Veriler</h2>
+      <div class="grid3">
+        <div class="box">${kv("Performans Değerleri", dy.performanceRecords)}</div>
+        <div class="box">${kv("Sağlık Durumu (SoH)", dy.soh)}</div>
+        <div class="box">${kv("Şarj Durumu (SoC)", dy.soc)}</div>
+        <div class="box">${kv("Pil Statüsü", dy.batteryStatus)}</div>
+        <div class="box">${kv("Kullanım Verileri", dy.usageData)}</div>
+        <div class="box">${kv("Olumsuz Olaylar", dy.incidents)}</div>
+        <div class="box">${kv("Sıcaklık Maruziyeti", dy.temperatureExposure)}</div>
+      </div>
+      <div class="small" style="margin-top:10px;">
+        Not: Dinamik veriler demo amaçlıdır; gerçek kullanımda periyodik güncellenir.
+      </div>
+      
+    `;
   }
 
   function render() {
-    const d = state.data || {};
-    app.innerHTML = contentHTML(d) + (state.error ? `<pre style="margin-top:12px;color:#fff;background:#000;padding:10px;border-radius:12px;">${esc(state.error)}</pre>` : "");
-    wire();
+    ensureTabAllowed();
+    const d = state.data || structuredClone(DEFAULT);
+
+    const viewButtons = Object.entries(VIEW).map(([id, v]) => {
+      const active = state.view === id ? "active" : "";
+      return `<button class="btn ${active}" data-view="${id}">${escapeHtml(v.label)}</button>`;
+    }).join("");
+
+    const allowed = allowedTabs();
+    const tabsHtml = TABS
+      .filter(t => allowed.includes(t.id))
+      .map((t) => {
+        const active = state.tab === t.id ? "active" : "";
+        return `
+          <div class="tab ${active}" data-tab="${t.id}">
+            ${icon(t.icon)} ${escapeHtml(t.label)}
+          </div>`;
+      })
+      .join("");
+
+    let content = "";
+    if (state.tab === "overview") content = renderOverview(d);
+    else if (state.tab === "carbon") content = renderCarbon(d);
+    else if (state.tab === "materials") content = renderMaterials(d);
+    else if (state.tab === "performance") content = renderPerformance(d);
+    else if (state.tab === "circularity") content = renderCircularity(d);
+    else if (state.tab === "compliance") content = renderCompliance(d);
+    else if (state.tab === "dynamic") content = renderDynamic(d);
+    else if (state.tab === "testreports") content = renderTestReports(d);
+
+    const header = `
+      <div class="top">
+        <div class="brand">
+          <div class="logo">${icon("battery")}</div>
+          <div>
+            <h1>Dijital Batarya Pasaportu</h1>
+            <div class="sub">Demo | YTÜ tez prototipi • ID: <b>${escapeHtml(d.passport.id)}</b></div>
+          </div>
+        </div>
+        <div class="viewBtns">${viewButtons}</div>
+      </div>
+
+      <div class="tabs">${tabsHtml}</div>
+    `;
+
+    const errorBox = state.err
+      ? `<div class="err">HATA: ${escapeHtml(state.err.message || String(state.err))}\nBASE: ${escapeHtml(BASE)}</div>`
+      : "";
+
+    app.innerHTML = header + `<div class="content">${content}</div>` + errorBox;
+
+    // buton click
+    app.querySelectorAll("[data-view]").forEach((b) => {
+      b.onclick = () => {
+        state.view = b.getAttribute("data-view");
+        ensureTabAllowed();
+        render();
+        createIconsSafe();
+      };
+    });
+    app.querySelectorAll("[data-tab]").forEach((t) => {
+      t.onclick = () => {
+        state.tab = t.getAttribute("data-tab");
+        render();
+        createIconsSafe();
+      };
+    });
+
+    createIconsSafe();
   }
 
-  async function load() {
+  async function init() {
     try {
-      const r = await fetch("./passport.json?ts=" + Date.now(), { cache: "no-store" });
-      const j = await r.json();
-      state.data = j;
-      state.error = null;
+      const url = `${BASE}/passport.json?ts=${Date.now()}`;
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) throw new Error(`passport.json okunamadı (${res.status})`);
+      const json = await res.json();
+      state.data = normalize(json);
     } catch (e) {
-      state.data = {};
-      state.error = "passport.json okunamadı: " + (e.message || String(e));
+      state.err = e;
+      state.data = normalize(null);
     }
     render();
   }
 
-  load();
+  init();
 })();
